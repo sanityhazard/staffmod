@@ -1,7 +1,7 @@
 {
 	"required": true,
 	"minVersion": "0.8.5",
-	"package": "org.zeith.modid.mixins",
+	"package": "net.sntyhzrd.staffmod.mixins",
 	"refmap": "mixins.modid.refmap.json",
 	"target": "@env(DEFAULT)",
 	"compatibilityLevel": "JAVA_17",

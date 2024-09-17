@@ -1,4 +1,4 @@
-package org.zeith.modid.mixins;
+package net.sntyhzrd.staffmod.mixins;
 
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
