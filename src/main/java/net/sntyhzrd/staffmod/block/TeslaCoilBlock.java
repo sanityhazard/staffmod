@@ -12,9 +12,12 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.sntyhzrd.staffmod.StaffMod;
+import net.sntyhzrd.staffmod.block.entity.CustomEnergyStorage;
 import net.sntyhzrd.staffmod.block.entity.TeslaCoil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -27,14 +30,23 @@ import org.zeith.hammerlib.core.adapter.BlockHarvestAdapter;
 
 @SimplyRegister
 public class TeslaCoilBlock extends BaseEntityBlock implements ICreativeTabBlock {
-    @RegistryName("tesla_coil")
-    public static final EnergyStorageBlock TESLA_COIL = new EnergyStorageBlock();
+//    public static final IntegerProperty ENERGY = IntegerProperty.create("tesla_energy", 0, 16000);
 
     public static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 32, 16);
+
+//    @Override
+//    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> pBuilder) {
+//        pBuilder.add(ENERGY);
+//    }
+
     public TeslaCoilBlock() {
-        super(Properties.of().requiresCorrectToolForDrops().sound(SoundType.METAL).strength(1.5F));
+        super(Properties.of().requiresCorrectToolForDrops().sound(SoundType.METAL).noOcclusion().strength(1.5F));
         BlockHarvestAdapter.bindTool(BlockHarvestAdapter.MineableType.PICKAXE, Tiers.IRON, new Block[]{this});
     }
+
+
+    @RegistryName("tesla_coil")
+    public static final TeslaCoilBlock TESLA_COIL = new TeslaCoilBlock();
 
     @Nullable
     @Override
@@ -54,7 +66,7 @@ public class TeslaCoilBlock extends BaseEntityBlock implements ICreativeTabBlock
 
     @Override
     public @Nullable BlockEntity newBlockEntity(BlockPos blockPos, BlockState blockState) {
-        return new TeslaCoil(blockPos, blockState);
+        return new TeslaCoil(blockPos, defaultBlockState());
     }
 
     @Override
