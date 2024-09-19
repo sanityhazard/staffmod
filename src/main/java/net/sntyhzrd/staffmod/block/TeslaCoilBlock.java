@@ -1,6 +1,8 @@
 package net.sntyhzrd.staffmod.block;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.Containers;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Tiers;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -14,11 +16,12 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.sntyhzrd.staffmod.StaffMod;
-import net.sntyhzrd.staffmod.block.entity.CustomEnergyStorage;
-import net.sntyhzrd.staffmod.block.entity.TeslaCoil;
+//import net.sntyhzrd.staffmod.block.entity.TeslaCoil; <- выдает ошибку
+import net.sntyhzrd.staffmod.block.entity.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.zeith.hammerlib.annotations.RegistryName;
@@ -27,12 +30,15 @@ import org.zeith.hammerlib.api.blocks.ICreativeTabBlock;
 import org.zeith.hammerlib.api.forge.BlockAPI;
 import org.zeith.hammerlib.api.items.CreativeTab;
 import org.zeith.hammerlib.core.adapter.BlockHarvestAdapter;
+import org.zeith.hammerlib.core.test.machine.TileTestMachine;
+
+import java.util.List;
 
 @SimplyRegister
 public class TeslaCoilBlock extends BaseEntityBlock implements ICreativeTabBlock {
 //    public static final IntegerProperty ENERGY = IntegerProperty.create("tesla_energy", 0, 16000);
 
-    public static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 32, 16);
+//    public static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 32, 16);
 
 //    @Override
 //    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> pBuilder) {
@@ -55,8 +61,8 @@ public class TeslaCoilBlock extends BaseEntityBlock implements ICreativeTabBlock
     }
 
     @Override
-    public VoxelShape getShape(BlockState p_60555_, BlockGetter p_60556_, BlockPos p_60557_, CollisionContext p_60558_) {
-        return SHAPE;
+    public List<ItemStack> getDrops(BlockState p_60537_, LootParams.Builder p_60538_) {
+        return List.of(new ItemStack(this));
     }
 
     @Override

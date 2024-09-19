@@ -6,6 +6,9 @@ import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LightningBolt;
+import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -19,7 +22,11 @@ import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.energy.EnergyStorage;
 import net.minecraftforge.energy.IEnergyStorage;
-import net.sntyhzrd.staffmod.block.EnergyStorageBlock;
+import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.sntyhzrd.staffmod.StaffMod;
+//import net.sntyhzrd.staffmod.block.EnergyStorageBlock;
 import net.sntyhzrd.staffmod.block.TeslaCoilBlock;
 import net.sntyhzrd.staffmod.init.ProjectilesMI;
 import net.sntyhzrd.staffmod.projectile.BallLightningProjectile;
@@ -29,88 +36,80 @@ import org.zeith.hammerlib.annotations.SimplyRegister;
 import org.zeith.hammerlib.api.forge.BlockAPI;
 import org.zeith.hammerlib.api.io.IAutoNBTSerializable;
 import org.zeith.hammerlib.api.io.NBTSerializable;
+import org.zeith.hammerlib.core.test.machine.TileTestMachine;
+import org.zeith.hammerlib.net.properties.PropertyInt;
 import org.zeith.hammerlib.proxy.HLConstants;
 import org.zeith.hammerlib.tiles.TileSyncableTickable;
 import org.zeith.hammerlib.tiles.tooltip.EnumTooltipEngine;
 import org.zeith.hammerlib.tiles.tooltip.ITooltipConsumer;
 import org.zeith.hammerlib.tiles.tooltip.ITooltipTile;
 import org.zeith.hammerlib.tiles.tooltip.own.ITooltip;
+import org.zeith.hammerlib.tiles.tooltip.own.ITooltipProvider;
 import org.zeith.hammerlib.tiles.tooltip.own.impl.WrappedTooltipEngine;
+import org.zeith.hammerlib.util.java.DirectStorage;
 import org.zeith.hammerlib.util.mcf.NormalizedTicker;
 
 import java.util.List;
 
-
 @SimplyRegister
-public class TeslaCoil extends TileSyncableTickable implements IEnergyStorage, ITooltipTile {
+public class TeslaCoil extends TileSyncableTickable implements IEnergyStorage, ITooltipProvider {
     @RegistryName("tesla_coil")
     public static final BlockEntityType<TeslaCoil> TESLA_COIL;
-
+    @NBTSerializable
+    private int _energy;
     public static int capacity = 256000;
-    public static int maxReceive = 16000;
+    public static int maxReceive = Integer.MAX_VALUE;
     public static int maxExtract = 16000;
     public static final Direction[] DIRECTIONS_NO_UP = Direction.stream().filter(f -> f != Direction.UP).toArray(Direction[]::new);
+    public final PropertyInt energy = new PropertyInt(DirectStorage.create((i) -> this._energy = i, () -> this._energy));
 
-    public int energy;
+    public boolean dirty;
 
     public TeslaCoil(BlockPos pos, BlockState state) {
         super(TESLA_COIL, pos, state);
+        this.dispatcher.registerProperty("energy", this.energy);
     }
 
-    private double getDistanceToEntity(Entity entity) {
-        double deltaX = entity.getX() - this.getBlockPos().getX();
-        double deltaY = entity.getY() - this.getBlockPos().getY();
-        double deltaZ = entity.getZ() - this.getBlockPos().getZ();
-
-        return Math.sqrt((deltaX * deltaX) + (deltaY * deltaY) + (deltaZ * deltaZ));
+    @Override
+    public void clientTick() {
+        this.setTooltipDirty(true);
     }
 
     @Override
     public void serverTick() {
-        if (!level.isClientSide()) {
-            double x = this.getBlockPos().getX();
-            double y = this.getBlockPos().getY();
-            double z = this.getBlockPos().getZ();
+        double x = this.getBlockPos().getX();
+        double y = this.getBlockPos().getY();
+        double z = this.getBlockPos().getZ();
 
-            AABB scanAbove = new AABB(x, y, z, x + 8, y + 8, z + 8);
-            List<Entity> entities = level.getEntities(new BallLightningProjectile(ProjectilesMI.BALL_LIGHTNING, level), scanAbove);
+        AABB scanAbove = new AABB(x - 8, y - 8, z - 8, x + 8, y + 8, z + 8);
+        var entities = level.getEntitiesOfClass(LightningBolt.class, scanAbove);
 
-            if (!entities.isEmpty()) {
-                for (int i = 0; i < entities.toArray().length; i++) {
-                    Entity entity = entities.get(i);
 
-                    // For some reason ServerPlayer can be in the entity list
-                    if (entity.getType() == ProjectilesMI.BALL_LIGHTNING) {
-                        double dist = getDistanceToEntity(entity);
-                        // dist (1, 0] -> 16k FE
-                        // dist (2, 1] -> 14k FE
-                        // ...
+        for (LightningBolt e : entities) {
+            if (!e.getTags().contains("processed")) {
+                var distance = e.position().distanceTo(getBlockPos().getCenter());
+                int newEnergy = (int) (16000 * (1 - distance / 8));
+                receiveEnergy(newEnergy, false);
 
-                        int floor = (int) Math.floor(dist);
-                        int generatedEnergy = ((16 - (2 * (floor - 1))) * 1000);
-
-//                        System.out.println("DISTANCE: " + dist + ". CLOSEST FLOOR INT:" + floor + ". ENERGY OUT: " + generatedEnergy);
-//                        Minecraft.getInstance().player.sendSystemMessage(Component.literal("DISTANCE: " + dist + ". CLOSEST FLOOR INT:" + floor + ". ENERGY OUT: " + generatedEnergy));
-                        receiveEnergy(generatedEnergy, false);
-                        System.out.println();
-
-                        for(Direction hor : DIRECTIONS_NO_UP)
-                        {
-                            BlockEntity tile = level.getBlockEntity(worldPosition.relative(hor));
-                            if(tile == null) continue;
-
-                            tile.getCapability(ForgeCapabilities.ENERGY, hor.getOpposite()).ifPresent(storage ->
-                            {
-                                if(storage.canReceive())
-                                    setEnergyStored(
-                                            getEnergyStored() - storage.receiveEnergy(generatedEnergy, false)
-                                    );
-//                                    energy -= storage.receiveEnergy(Math.min(getEnergyStored(), maxExtract), false);
-                            });
-                        }
-                    }
-                }
+                e.addTag("processed");
             }
+        }
+
+        for(Direction dir : Direction.values())
+        {
+            BlockEntity tile = level.getBlockEntity(worldPosition.relative(dir));
+            if(tile == null) continue;
+
+            tile.getCapability(ForgeCapabilities.ENERGY, dir.getOpposite()).ifPresent(storage ->
+            {
+                if(storage.canReceive()) {
+                    int storageMaxEnergyStored = storage.getMaxEnergyStored(); // put them here for easy debug
+                    int energyStored = getEnergyStored(); // зейт не ешь меня
+                    setEnergyStored(
+                            getEnergyStored() - storage.receiveEnergy(Math.min(Math.min(maxExtract, getEnergyStored()), storage.getMaxEnergyStored() - storage.getEnergyStored()), false)
+                    );
+                }
+            });
         }
     }
 
@@ -150,13 +149,14 @@ public class TeslaCoil extends TileSyncableTickable implements IEnergyStorage, I
 
     @Override
     public int getEnergyStored() {
-        return energy;
+        return energy.getInt();
     }
 
     public void setEnergyStored(int value) {
-        energy = value;
+        energy.setInt(value);
         // это останется здесь на случай если мне снова надо будет переписывать взаимодействие с energy
         // я знаю что это убого
+        // upd А Я ЗНАЛ ЧТО ПРИДЕТСЯ
     }
 
     @Override
@@ -172,16 +172,6 @@ public class TeslaCoil extends TileSyncableTickable implements IEnergyStorage, I
     @Override
     public boolean canReceive() {
         return maxReceive > 0;
-    }
-
-    @Override
-    public void addTooltip(ITooltipConsumer consumer, Player player) {
-        consumer.addLine(Component.literal("Energy stored: " + getEnergyStored()));
-    }
-
-    @Override
-    public boolean isEngineSupported(EnumTooltipEngine engine) {
-        return ITooltipTile.super.isEngineSupported(engine);
     }
 
     LazyOptional<IEnergyStorage> energyStorageTile = LazyOptional.of(() -> TeslaCoil.this);
@@ -202,5 +192,20 @@ public class TeslaCoil extends TileSyncableTickable implements IEnergyStorage, I
     @Override
     public CompoundTag serializeNBT() {
         return super.serializeNBT();
+    }
+
+    @Override
+    public boolean isTooltipDirty() {
+        return this.dirty;
+    }
+
+    @Override
+    public void setTooltipDirty(boolean b) {
+        this.dirty = b;
+    }
+
+    @Override
+    public void addInformation(ITooltip iTooltip) {
+        iTooltip.addText(Component.literal("Energy: " + getEnergyStored()));
     }
 }
